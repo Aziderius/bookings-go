@@ -2,17 +2,21 @@ package render
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"path/filepath"
 
-	"github.com/aziderius/bookings-go/pkg/config"
-	"github.com/aziderius/bookings-go/pkg/models"
+	"github.com/aziderius/bookings-go/internal/config"
+	"github.com/aziderius/bookings-go/internal/models"
 	"github.com/justinas/nosurf"
 )
 
+var functions = template.FuncMap{}
+
 var app *config.AppConfig
+var pathToTemplates = "./templates"
 
 // NewTemplates sets the config for the template package
 func NewTemplates(a *config.AppConfig) {
@@ -20,6 +24,9 @@ func NewTemplates(a *config.AppConfig) {
 }
 
 func AddDefaultData(td *models.TemplateData, r *http.Request) *models.TemplateData {
+	td.Flash = app.Session.PopString(r.Context(), "flash")
+	td.Error = app.Session.PopString(r.Context(), "error")
+	td.Warning = app.Session.PopString(r.Context(), "warning")
 	td.CSRFToken = nosurf.Token(r)
 	return td
 }
@@ -67,7 +74,7 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 	myCache := map[string]*template.Template{}
 
 	//get all of the files name *.page.tpl from the ./templates
-	pages, err := filepath.Glob("./templates/*.page.tpl")
+	pages, err := filepath.Glob(fmt.Sprintf("%s/*.page.tpl", pathToTemplates))
 	if err != nil {
 		return myCache, err
 	}
@@ -75,18 +82,18 @@ func CreateTemplateCache() (map[string]*template.Template, error) {
 	//range through all files ending with *.page.tpl
 	for _, page := range pages {
 		name := filepath.Base(page)
-		ts, err := template.New(name).ParseFiles(page)
+		ts, err := template.New(name).Funcs(functions).ParseFiles(page) //Funcs(functions) no estaba
 		if err != nil {
 			return myCache, err
 		}
 
-		matches, err := filepath.Glob("./templates/*.layout.tpl")
+		matches, err := filepath.Glob(fmt.Sprintf("%s/*.layout.tpl", pathToTemplates))
 		if err != nil {
 			return myCache, err
 		}
 
 		if len(matches) > 0 {
-			ts, err = ts.ParseGlob("./templates/*.layout.tpl")
+			ts, err = ts.ParseGlob(fmt.Sprintf("%s/*.layout.tpl", pathToTemplates))
 			if err != nil {
 				return myCache, err
 			}
